@@ -6,11 +6,18 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 )
 
-type Page struct {
-	PageId int    `json:"pageId"`
-	Title  string `json:"title"`
+// JSONをパースするための構造体を定義
+type WikipediaResponse struct {
+	// BatchComplete string `json:"batchcomplete"`
+	Query Query `json:"query"`
+}
+
+type Query struct {
+	SearchInfo SearchInfo `json:"searchinfo"`
+	Search     []Search   `json:"search"`
 }
 
 type SearchInfo struct {
@@ -18,44 +25,56 @@ type SearchInfo struct {
 }
 
 type Search struct {
-	Title   string `json:"title"`
-	Snippet string `json:"snippet"`
-}
-
-type Query struct {
-	Pages      map[string]Page `json:"pages"`
-	SearchInfo SearchInfo      `json:"searchinfo"`
-	Search     []Search        `json:"search"`
-}
-
-type WikipediaResponse struct {
-	BatchComplete string `json:"batchcomplete"`
-	Query         Query  `json:"query"`
+	Title  string `json:"title"`
+	PageId int    `json:"pageid"`
+	// Snippet string `json:"snippet"`
 }
 
 func main() {
-	// URL作成
-	url := url.URL{}
-	url.Scheme = "http"
-	url.Host = "ja.wikipedia.org"
-	url.Path = "w/api.php"
-	query := url.Query()
+	// 引数チェック
+	if len(os.Args) != 2 {
+		fmt.Println("検索ワードを指定")
+		os.Exit(1)
+	}
+	arg := os.Args[1]
+
+	// APIを叩くためのURL作成
+	baseUrl := url.URL{}
+	baseUrl.Scheme = "http"
+	baseUrl.Host = fmt.Sprintf("%s.wikipedia.org", "ja")
+	baseUrl.Path = "w/api.php"
+	query := baseUrl.Query()
 	query.Set("action", "query")
 	query.Set("list", "search")
-	query.Set("srsearch", "じゃがいも")
+	query.Set("srsearch", arg)
+	query.Set("srlimit", "10") // 取得する件数
 	query.Set("format", "json")
-	url.RawQuery = query.Encode()
-	fmt.Println(url.String())
+	baseUrl.RawQuery = query.Encode()
 
-	// HTTPリクエスト
-	resp, err := http.Get(url.String())
+	// 記事検索APIを叩く
+	resp, err := http.Get(baseUrl.String())
 	if err != nil {
 		fmt.Println("Error!")
 	}
 	defer resp.Body.Close()
+
+	// レスポンスをパースする
 	body, err := ioutil.ReadAll(resp.Body)
 	wikipediaResponse := new(WikipediaResponse)
 	err = json.Unmarshal(body, wikipediaResponse)
 
-	fmt.Printf("%+v\n", wikipediaResponse.Query.Search)
+	// ヒットした記事が0件の場合は終了
+	if wikipediaResponse.Query.SearchInfo.Totalhits <= 0 {
+		fmt.Println("記事が見つかりませんでした。")
+		os.Exit(1)
+	}
+
+	// 記事タイトルとURLを表示
+	for _, v := range wikipediaResponse.Query.Search {
+		fmt.Println("---------------------------------------------------")
+		fmt.Println(v.Title)
+		fmt.Printf("https://%s.wikipedia.org/?curid=%d\n", "ja", v.PageId)
+	}
+	fmt.Println("---------------------------------------------------")
+
 }
