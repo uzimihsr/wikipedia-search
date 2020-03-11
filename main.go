@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -11,7 +13,6 @@ import (
 
 // JSONをパースするための構造体を定義
 type WikipediaResponse struct {
-	// BatchComplete string `json:"batchcomplete"`
 	Query Query `json:"query"`
 }
 
@@ -32,29 +33,36 @@ type Search struct {
 
 func main() {
 	// 引数チェック
-	if len(os.Args) != 2 {
-		fmt.Println("検索ワードを指定")
+	var language = flag.String("lang", "ja", "検索するwikiの言語. default: ja")
+	var srlimit = flag.Int("srlimit", 10, "検索件数. default: 10")
+	flag.Parse()
+	if flag.NArg() != 1 {
+		fmt.Println("検索ワードを指定してください")
 		os.Exit(1)
 	}
-	arg := os.Args[1]
+	if flag.NFlag() > 2 {
+		fmt.Println("言語以外のフラグは無効です")
+		os.Exit(1)
+	}
+	arg := flag.Arg(0)
 
 	// APIを叩くためのURL作成
 	baseUrl := url.URL{}
 	baseUrl.Scheme = "http"
-	baseUrl.Host = fmt.Sprintf("%s.wikipedia.org", "ja")
+	baseUrl.Host = fmt.Sprintf("%s.wikipedia.org", *language)
 	baseUrl.Path = "w/api.php"
 	query := baseUrl.Query()
 	query.Set("action", "query")
 	query.Set("list", "search")
 	query.Set("srsearch", arg)
-	query.Set("srlimit", "10") // 取得する件数
+	query.Set("srlimit", fmt.Sprintf("%d", *srlimit))
 	query.Set("format", "json")
 	baseUrl.RawQuery = query.Encode()
 
 	// 記事検索APIを叩く
 	resp, err := http.Get(baseUrl.String())
 	if err != nil {
-		fmt.Println("Error!")
+		log.Fatal(err)
 	}
 	defer resp.Body.Close()
 
@@ -73,7 +81,7 @@ func main() {
 	for _, v := range wikipediaResponse.Query.Search {
 		fmt.Println("---------------------------------------------------")
 		fmt.Println(v.Title)
-		fmt.Printf("https://%s.wikipedia.org/?curid=%d\n", "ja", v.PageId)
+		fmt.Printf("https://%s.wikipedia.org/?curid=%d\n", *language, v.PageId)
 	}
 	fmt.Println("---------------------------------------------------")
 
