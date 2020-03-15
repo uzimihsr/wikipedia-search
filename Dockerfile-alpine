@@ -1,6 +1,5 @@
 # golangをビルド用イメージとして使うパターン
 FROM golang:1.13
-LABEL maintainer="usimihsr"
 COPY . ./goapp
 WORKDIR ./goapp
 
@@ -10,6 +9,7 @@ RUN go mod download && \
 
 # ベースイメージはalpineを指定
 FROM alpine:latest
+LABEL maintainer="usimihsr"
 WORKDIR goapp
 
 # ビルド用イメージからバイナリをコピー
