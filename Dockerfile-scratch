@@ -1,0 +1,17 @@
+# golangをビルド用イメージとして使うパターン
+FROM golang:1.13
+LABEL maintainer="usimihsr"
+COPY . ./goapp
+WORKDIR ./goapp
+RUN go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app .
+
+# ベースイメージはscratchを指定
+FROM scratch
+WORKDIR goapp
+COPY --from=0 /app ./
+
+# httpsで通信するのに必要なCA証明書を用意する
+COPY --from=0 /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+ENTRYPOINT ["./app"]

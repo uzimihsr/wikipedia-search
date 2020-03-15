@@ -1,0 +1,14 @@
+# ベースイメージが大きいパターン
+FROM golang:1.13
+LABEL maintainer="usimihsr"
+
+# ファイルを全部コピー
+COPY . ./goapp
+WORKDIR ./goapp
+
+# go.modとgo.sumを使って管理している依存関係をダウンロードしてビルド
+RUN go mod download && \
+    go build -o ./app .
+
+# バイナリをエントリーポイントに指定
+ENTRYPOINT ["./app"]
